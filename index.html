@@ -6,16 +6,20 @@
     <link rel="manifest" href="manifest.json">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
+    <!-- Bibliotecas de PDF e QR Code -->
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    
+    <!-- Nova Biblioteca para renderizar o PDF na tela -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';</script>
 
     <style>
         body { font-family: Arial, sans-serif; padding: 20px; background-color: #eef2f5; margin: 0; }
-        .container { background: white; padding: 25px; border-radius: 8px; max-width: 700px; margin: auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .container { background: white; padding: 25px; border-radius: 8px; max-width: 800px; margin: auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         h2 { margin-top: 0; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
         
-        /* Navegação das Abas */
         .menu { display: flex; gap: 5px; margin-bottom: 20px; background: #ecf0f1; padding: 5px; border-radius: 6px; }
         .menu button { flex: 1; padding: 12px; background: transparent; border: none; font-weight: bold; color: #7f8c8d; cursor: pointer; border-radius: 4px; transition: 0.3s; }
         .menu button.ativo { background: #3498db; color: white; }
@@ -24,7 +28,6 @@
         .tela { display: none; }
         .tela.ativa { display: block; }
 
-        /* Estilos Comuns */
         label { font-weight: bold; display: block; margin-top: 15px; color: #444; font-size: 14px; }
         input, select { width: 100%; padding: 10px; margin-top: 5px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
         .row { display: flex; gap: 10px; }
@@ -32,6 +35,12 @@
         .btn-acao { margin-top: 25px; padding: 15px; width: 100%; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: bold; }
         .btn-acao:disabled { background: #95a5a6; cursor: not-allowed; }
         .upload-area { border: 2px dashed #3498db; padding: 20px; text-align: center; border-radius: 6px; margin-top: 15px; background-color: #f7fbfe; }
+        
+        /* Estilos do Preview Canvas */
+        #preview-container { position: relative; margin-top: 15px; display: none; border: 1px solid #ccc; background: #ddd; max-height: 500px; overflow-y: auto; text-align: center; }
+        #pdf-canvas { display: block; margin: 0 auto; box-shadow: 0 0 5px rgba(0,0,0,0.3); }
+        #overlay { position: absolute; top: 0; left: 50%; transform: translateX(-50%); cursor: crosshair; z-index: 10; }
+        #selection-box { position: absolute; border: 2px dashed #e74c3c; background: rgba(231, 76, 60, 0.2); display: none; pointer-events: none; z-index: 20; }
         
         /* Validador */
         #reader { width: 100%; margin-top: 15px; border-radius: 8px; overflow: hidden; background: #000; }
@@ -53,21 +62,21 @@
 
     <!-- TELA 1: ASSINADOR -->
     <div id="tela-assinador" class="tela ativa">
-        <p>Insira os certificados (.json) e os documentos (.pdf) para assinar.</p>
+        <p>1. Carregue os documentos. 2. Desenhe o tamanho e o local da assinatura no visualizador. 3. Assine.</p>
         
-        <label>1. Posição da Assinatura:</label>
-        <select id="posicao_assinatura">
-            <option value="inf-dir">Canto Inferior Direito</option>
-            <option value="inf-esq">Canto Inferior Esquerdo</option>
-            <option value="sup-dir">Canto Superior Direito</option>
-            <option value="sup-esq">Canto Superior Esquerdo</option>
-        </select>
+        <div class="upload-area"><input type="file" id="documentos" accept="application/pdf" multiple onchange="renderizarPreviewPDF(this)"></div>
 
-        <label>2. Carregar Certificados (Máx 5):</label>
+        <div id="preview-container">
+            <div style="position: relative; display: inline-block;">
+                <canvas id="pdf-canvas"></canvas>
+                <div id="overlay"></div>
+                <div id="selection-box"></div>
+            </div>
+            <p style="font-size: 12px; color: #555; padding: 5px;">Clique e arraste no documento acima para delimitar onde a assinatura será estampada.</p>
+        </div>
+
+        <label style="margin-top:20px;">Carregar Certificados (Máx 5):</label>
         <div class="upload-area"><input type="file" id="certificados" accept=".json" multiple></div>
-
-        <label>3. Carregar Documentos (Máx 3):</label>
-        <div class="upload-area"><input type="file" id="documentos" accept="application/pdf" multiple></div>
 
         <button class="btn-acao" id="btnAssinar" onclick="iniciarAssinatura()">Assinar Documentos</button>
         <div id="status-assinatura" style="margin-top: 15px; font-size: 14px; white-space: pre-line;"></div>
@@ -77,24 +86,17 @@
     <!-- TELA 2: GERADOR -->
     <div id="tela-gerador" class="tela">
         <p>Gere uma credencial de assinatura digital.</p>
-        <label>Nome Completo:</label>
-        <input type="text" id="nome" placeholder="Ex: Lourran Martins Fonseca">
+        <label>Nome Completo:</label><input type="text" id="nome" placeholder="Ex: Lourran Martins Fonseca">
         <div class="row">
-            <div class="col"><label>Data de Nascimento:</label><input type="date" id="data_nasc"></div>
-            <div class="col"><label>Local de Nascimento:</label><input type="text" id="local_nasc"></div>
+            <div class="col"><label>Data Nasc.:</label><input type="date" id="data_nasc"></div>
+            <div class="col"><label>Local Nasc.:</label><input type="text" id="local_nasc"></div>
         </div>
         <div class="row">
-            <div class="col">
-                <label>Identificação:</label>
-                <select id="tipo_id"><option value="CPF">CPF</option><option value="Matrícula">Matrícula</option></select>
-            </div>
+            <div class="col"><label>Identificação:</label><select id="tipo_id"><option value="CPF">CPF</option><option value="Matrícula">Matrícula</option></select></div>
             <div class="col"><label>Número:</label><input type="text" id="numero_id"></div>
         </div>
-        <label>Foto do Documento (RG/CNH):</label>
-        <input type="file" id="foto_rg" accept="image/png, image/jpeg">
-        <label>Foto do Rosto (Selfie):</label>
-        <input type="file" id="foto_selfie" accept="image/png, image/jpeg" capture="user">
-        
+        <label>Foto do Documento (RG/CNH):</label><input type="file" id="foto_rg" accept="image/png, image/jpeg">
+        <label>Foto do Rosto (Selfie):</label><input type="file" id="foto_selfie" accept="image/png, image/jpeg" capture="user">
         <button class="btn-acao" style="background:#2980b9;" id="btnGerar" onclick="gerarCertificado()">Criar e Baixar Certificado</button>
     </div>
 
@@ -103,7 +105,6 @@
         <p>Aponte a câmera para o QR Code impresso no documento.</p>
         <button class="btn-acao" style="background:#e74c3c; margin-top:0;" id="btnStartCamera" onclick="iniciarScanner()">Ligar Câmera</button>
         <div id="reader"></div>
-        
         <div id="resultadoCaixa" class="resultado">
             <h3 id="statusTitulo" style="margin-top:0;"></h3>
             <p><strong>Nome:</strong> <span id="resNome"></span></p>
@@ -116,21 +117,96 @@
 
 <script>
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
-
     let html5QrcodeScanner;
 
     function mudarAba(aba) {
         document.querySelectorAll('.tela').forEach(t => t.classList.remove('ativa'));
         document.querySelectorAll('.menu button').forEach(b => b.classList.remove('ativo'));
-        
         document.getElementById(`tela-${aba}`).classList.add('ativa');
         document.getElementById(`btnAba${aba.charAt(0).toUpperCase() + aba.slice(1)}`).classList.add('ativo');
-
         if (aba !== 'validador' && html5QrcodeScanner) {
             try { html5QrcodeScanner.stop(); document.getElementById('btnStartCamera').style.display = 'block'; } catch (e) {}
         }
     }
 
+    // --- LÓGICA DO PREVIEW E DESENHO ---
+    let selectionRect = null; // Guardará {x, y, w, h}
+    let pdfOriginalWidth = 0;
+    let pdfOriginalHeight = 0;
+
+    async function renderizarPreviewPDF(input) {
+        if (input.files.length === 0) return;
+        const file = input.files[0];
+        const arrayBuffer = await lerArquivo(file, 'buffer');
+        
+        const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+        const page = await pdf.getPage(1);
+        
+        const viewport = page.getViewport({ scale: 1.0 });
+        pdfOriginalWidth = viewport.width;
+        pdfOriginalHeight = viewport.height;
+        
+        // Define a largura do canvas para caber na tela
+        const scale = 500 / viewport.width;
+        const scaledViewport = page.getViewport({ scale: scale });
+
+        const canvas = document.getElementById('pdf-canvas');
+        const context = canvas.getContext('2d');
+        canvas.width = scaledViewport.width;
+        canvas.height = scaledViewport.height;
+
+        const overlay = document.getElementById('overlay');
+        overlay.style.width = canvas.width + 'px';
+        overlay.style.height = canvas.height + 'px';
+
+        document.getElementById('preview-container').style.display = 'block';
+        await page.render({ canvasContext: context, viewport: scaledViewport }).promise;
+        
+        configurarDesenho(overlay);
+    }
+
+    function configurarDesenho(overlay) {
+        let isDrawing = false;
+        let startX, startY;
+        const selBox = document.getElementById('selection-box');
+        
+        overlay.onmousedown = (e) => {
+            isDrawing = true;
+            startX = e.offsetX;
+            startY = e.offsetY;
+            selBox.style.display = 'block';
+            selBox.style.left = startX + 'px';
+            selBox.style.top = startY + 'px';
+            selBox.style.width = '0px';
+            selBox.style.height = '0px';
+        };
+
+        overlay.onmousemove = (e) => {
+            if (!isDrawing) return;
+            const curX = e.offsetX;
+            const curY = e.offsetY;
+            const w = curX - startX;
+            const h = curY - startY;
+            
+            selBox.style.left = (w < 0 ? curX : startX) + 'px';
+            selBox.style.top = (h < 0 ? curY : startY) + 'px';
+            selBox.style.width = Math.abs(w) + 'px';
+            selBox.style.height = Math.abs(h) + 'px';
+        };
+
+        overlay.onmouseup = (e) => {
+            isDrawing = false;
+            // Salva as proporções relativas do desenho
+            selectionRect = {
+                x: parseInt(selBox.style.left) / overlay.offsetWidth,
+                y: parseInt(selBox.style.top) / overlay.offsetHeight,
+                w: parseInt(selBox.style.width) / overlay.offsetWidth,
+                h: parseInt(selBox.style.height) / overlay.offsetHeight
+            };
+        };
+    }
+
+    // --- LÓGICA DO ASSINADOR ---
     async function obterLocalizacao() {
         return new Promise((resolve) => {
             if (!navigator.geolocation) return resolve("Localização não suportada");
@@ -147,7 +223,7 @@
     async function gerarQRCodeBase64(texto) {
         return new Promise((resolve) => {
             const container = document.getElementById("qrcode-hidden"); container.innerHTML = ""; 
-            new QRCode(container, { text: texto, width: 128, height: 128 });
+            new QRCode(container, { text: texto, width: 256, height: 256 });
             setTimeout(() => resolve(container.querySelector("canvas").toDataURL("image/png")), 300);
         });
     }
@@ -165,9 +241,9 @@
         const inputDocs = document.getElementById('documentos').files;
         const btn = document.getElementById('btnAssinar');
         const status = document.getElementById('status-assinatura');
-        const posicaoEscolhida = document.getElementById('posicao_assinatura').value;
 
         if (inputCerts.length === 0 || inputDocs.length === 0) { alert("Carregue certificado e PDF."); return; }
+        if (!selectionRect || selectionRect.w === 0) { alert("Por favor, clique na imagem do PDF e desenhe o retângulo onde a assinatura deve ficar."); return; }
 
         btn.disabled = true; status.innerText = "Capturando localização...\n";
         const local_atual = await obterLocalizacao(); status.innerText += `Local: ${local_atual}\nLendo arquivos...\n`;
@@ -179,8 +255,16 @@
             for (let d = 0; d < inputDocs.length; d++) {
                 const pdfDoc = await PDFLib.PDFDocument.load(await lerArquivo(inputDocs[d], 'buffer'));
                 const primeiraPagina = pdfDoc.getPages()[0];
-                const larguraPagina = primeiraPagina.getWidth();
-                const alturaPagina = primeiraPagina.getHeight();
+                const pdfW = primeiraPagina.getWidth();
+                const pdfH = primeiraPagina.getHeight();
+
+                // Converte as proporções relativas do desenho para os pontos (pt) do PDF real
+                const boxW = selectionRect.w * pdfW;
+                const boxH = selectionRect.h * pdfH;
+                const boxX = selectionRect.x * pdfW;
+                
+                // O eixo Y no pdf-lib é de baixo para cima (invertido em relação ao navegador)
+                const startY_PDF = pdfH - (selectionRect.y * pdfH);
 
                 for (let a = 0; a < assinantes.length; a++) {
                     const dados = assinantes[a].servidor;
@@ -189,49 +273,68 @@
                     
                     const qrImage = await pdfDoc.embedPng(await gerarQRCodeBase64(qrData));
                     
-                    const carimboLargura = 230; 
-                    const carimboAltura = 95;
-                    const espacamento = 105;
-                    
-                    let posX, posY;
-                    
-                    if (posicaoEscolhida === 'inf-dir') {
-                        posX = larguraPagina - carimboLargura - 20;
-                        posY = 20 + (a * espacamento);
-                    } else if (posicaoEscolhida === 'inf-esq') {
-                        posX = 20;
-                        posY = 20 + (a * espacamento);
-                    } else if (posicaoEscolhida === 'sup-dir') {
-                        posX = larguraPagina - carimboLargura - 20;
-                        posY = alturaPagina - carimboAltura - 20 - (a * espacamento);
-                    } else if (posicaoEscolhida === 'sup-esq') {
-                        posX = 20;
-                        posY = alturaPagina - carimboAltura - 20 - (a * espacamento);
-                    }
+                    // Se houver múltiplas assinaturas, empilha para baixo da caixa original desenhada
+                    const gap = 10;
+                    const currentY = startY_PDF - boxH - (a * (boxH + gap));
 
-                    primeiraPagina.drawRectangle({ x: posX, y: posY, width: carimboLargura, height: carimboAltura, color: PDFLib.rgb(0.88, 0.95, 0.99), borderColor: PDFLib.rgb(0, 0, 0), borderWidth: 1 });
-                    primeiraPagina.drawImage(qrImage, { x: posX + 5, y: posY + 10, width: 75, height: 75 });
+                    // Desenha o fundo da assinatura
+                    primeiraPagina.drawRectangle({ x: boxX, y: currentY, width: boxW, height: boxH, color: PDFLib.rgb(0.88, 0.95, 0.99), borderColor: PDFLib.rgb(0, 0, 0), borderWidth: 1 });
 
                     const fonte = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
                     const fonteNorm = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
 
-                    primeiraPagina.drawText("ASSINADO DIGITALMENTE", { x: posX + 85, y: posY + 80, size: 8, font: fonte });
-                    primeiraPagina.drawText(`Nome: ${dados.nome.substring(0, 22)}`, { x: posX + 85, y: posY + 67, size: 7, font: fonteNorm });
-                    primeiraPagina.drawText(`ID: ${dados.numero_identificacao}`, { x: posX + 85, y: posY + 55, size: 7, font: fonteNorm });
-                    primeiraPagina.drawText(`Data: ${dataHoraStr}`, { x: posX + 85, y: posY + 43, size: 7, font: fonteNorm });
-                    primeiraPagina.drawText(`Local: ${local_atual.substring(0, 25)}`, { x: posX + 85, y: posY + 31, size: 7, font: fonteNorm });
-                    primeiraPagina.drawText("Valide em:", { x: posX + 85, y: posY + 19, size: 7, font: fonteNorm });
-                    primeiraPagina.drawText("https://certificadocachoeiras.github.io/certificadocachoeiras/", { x: posX + 85, y: posY + 9, size: 4.5, font: fonteNorm, color: PDFLib.rgb(0.1, 0.1, 0.8) });
+                    // --- LÓGICA DE LAYOUT DINÂMICO (Comprida vs Em pé) ---
+                    const isVertical = boxH > boxW;
+                    const padding = 5;
+
+                    if (!isVertical) {
+                        // ASSINATURA HORIZONTAL / COMPRIDA (QR na esquerda, Textos na direita)
+                        const qrSize = boxH - (padding * 2);
+                        primeiraPagina.drawImage(qrImage, { x: boxX + padding, y: currentY + padding, width: qrSize, height: qrSize });
+                        
+                        const textX = boxX + qrSize + (padding * 2);
+                        // Ajusta o tamanho da fonte proporcionalmente à altura desenhada
+                        const baseFontSize = Math.min(Math.max(boxH * 0.12, 4), 12); 
+                        const lineSpc = baseFontSize * 1.3;
+                        let textY = currentY + boxH - padding - baseFontSize;
+
+                        primeiraPagina.drawText("ASSINADO DIGITALMENTE", { x: textX, y: textY, size: baseFontSize + 1, font: fonte }); textY -= lineSpc;
+                        primeiraPagina.drawText(`Nome: ${dados.nome.substring(0, 25)}`, { x: textX, y: textY, size: baseFontSize, font: fonteNorm }); textY -= lineSpc;
+                        primeiraPagina.drawText(`ID: ${dados.numero_identificacao}`, { x: textX, y: textY, size: baseFontSize, font: fonteNorm }); textY -= lineSpc;
+                        primeiraPagina.drawText(`Data: ${dataHoraStr}`, { x: textX, y: textY, size: baseFontSize, font: fonteNorm }); textY -= lineSpc;
+                        primeiraPagina.drawText(`Local: ${local_atual.substring(0, 25)}`, { x: textX, y: textY, size: baseFontSize, font: fonteNorm }); textY -= lineSpc;
+                        primeiraPagina.drawText("Valide em:", { x: textX, y: textY, size: baseFontSize, font: fonteNorm }); textY -= (lineSpc * 0.8);
+                        primeiraPagina.drawText("https://certificadocachoeiras.github.io/certificadocachoeiras/", { x: textX, y: textY, size: baseFontSize * 0.7, font: fonteNorm, color: PDFLib.rgb(0.1, 0.1, 0.8) });
+                    } else {
+                        // ASSINATURA VERTICAL / EM PÉ (QR no topo, Textos embaixo)
+                        const qrSize = boxW - (padding * 2);
+                        const qrY = currentY + boxH - qrSize - padding;
+                        primeiraPagina.drawImage(qrImage, { x: boxX + padding, y: qrY, width: qrSize, height: qrSize });
+                        
+                        const textX = boxX + padding;
+                        const baseFontSize = Math.min(Math.max(boxW * 0.08, 4), 10);
+                        const lineSpc = baseFontSize * 1.2;
+                        let textY = qrY - padding - baseFontSize;
+
+                        primeiraPagina.drawText("ASSINATURA DIGITAL", { x: textX, y: textY, size: baseFontSize, font: fonte }); textY -= lineSpc;
+                        primeiraPagina.drawText(`N: ${dados.nome.substring(0, 20)}`, { x: textX, y: textY, size: baseFontSize, font: fonteNorm }); textY -= lineSpc;
+                        primeiraPagina.drawText(`ID: ${dados.numero_identificacao}`, { x: textX, y: textY, size: baseFontSize, font: fonteNorm }); textY -= lineSpc;
+                        primeiraPagina.drawText(`${dataHoraStr}`, { x: textX, y: textY, size: baseFontSize, font: fonteNorm }); textY -= lineSpc;
+                        primeiraPagina.drawText(`${local_atual.substring(0, 20)}`, { x: textX, y: textY, size: baseFontSize, font: fonteNorm }); textY -= lineSpc;
+                        primeiraPagina.drawText("Validar em:", { x: textX, y: textY, size: baseFontSize * 0.8, font: fonteNorm }); textY -= (lineSpc * 0.8);
+                        primeiraPagina.drawText("certificadocachoeiras.github.io", { x: textX, y: textY, size: baseFontSize * 0.7, font: fonteNorm, color: PDFLib.rgb(0.1, 0.1, 0.8) });
+                    }
                 }
 
                 const url = URL.createObjectURL(new Blob([await pdfDoc.save()], { type: "application/pdf" }));
                 const link = document.createElement('a'); link.href = url; link.download = inputDocs[d].name.replace('.pdf', '_ASSINADO.pdf');
                 document.body.appendChild(link); link.click(); document.body.removeChild(link);
             }
-            status.innerText += `\nConcluído!`;
+            status.innerText += `\nConcluído! Documentos assinados com sucesso no formato escolhido.`;
         } catch (erro) { status.innerText += `\nErro: ${erro.message}`; } finally { btn.disabled = false; }
     }
 
+    // --- LÓGICA DO GERADOR ---
     async function gerarCertificado() {
         const nome = document.getElementById("nome").value.trim();
         const dataNasc = document.getElementById("data_nasc").value;
@@ -261,6 +364,7 @@
         } catch (e) { alert("Erro ao gerar chaves."); btn.innerText = "Criar e Baixar Certificado"; btn.disabled = false; }
     }
 
+    // --- LÓGICA DO VALIDADOR ---
     function iniciarScanner() {
         document.getElementById('btnStartCamera').style.display = 'none';
         document.getElementById('resultadoCaixa').style.display = 'none';
