@@ -8,92 +8,148 @@
     
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 
     <style>
-        body { font-family: Arial, sans-serif; padding: 20px; background-color: #eef2f5; }
+        body { font-family: Arial, sans-serif; padding: 20px; background-color: #eef2f5; margin: 0; }
         .container { background: white; padding: 25px; border-radius: 8px; max-width: 700px; margin: auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         h2 { margin-top: 0; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        
+        /* Navegação das Abas */
+        .menu { display: flex; gap: 5px; margin-bottom: 20px; background: #ecf0f1; padding: 5px; border-radius: 6px; }
+        .menu button { flex: 1; padding: 12px; background: transparent; border: none; font-weight: bold; color: #7f8c8d; cursor: pointer; border-radius: 4px; transition: 0.3s; }
+        .menu button.ativo { background: #3498db; color: white; }
+        .menu button:hover:not(.ativo) { background: #bdc3c7; color: #2c3e50; }
+        
+        .tela { display: none; }
+        .tela.ativa { display: block; }
+
+        /* Estilos Comuns */
+        label { font-weight: bold; display: block; margin-top: 15px; color: #444; font-size: 14px; }
+        input, select { width: 100%; padding: 10px; margin-top: 5px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        .row { display: flex; gap: 10px; }
+        .col { flex: 1; }
+        .btn-acao { margin-top: 25px; padding: 15px; width: 100%; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: bold; }
+        .btn-acao:disabled { background: #95a5a6; cursor: not-allowed; }
         .upload-area { border: 2px dashed #3498db; padding: 20px; text-align: center; border-radius: 6px; margin-top: 15px; background-color: #f7fbfe; }
-        label { font-weight: bold; display: block; margin-top: 15px; color: #444; }
-        input[type="file"] { margin-top: 10px; }
-        button { margin-top: 25px; padding: 15px; width: 100%; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: bold; }
-        button:hover { background: #219150; }
-        button:disabled { background: #95a5a6; cursor: not-allowed; }
-        #status { margin-top: 15px; font-size: 14px; color: #333; white-space: pre-line; line-height: 1.5; }
+        
+        /* Validador */
+        #reader { width: 100%; margin-top: 15px; border-radius: 8px; overflow: hidden; background: #000; }
+        .resultado { margin-top: 20px; padding: 15px; border-radius: 6px; display: none; background: #ecf0f1; color: #2c3e50; }
+        .valido { border-left: 6px solid #27ae60; }
+        .invalido { border-left: 6px solid #e74c3c; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Certificado Cachoeiras - Assinador</h2>
-    <p>Insira os certificados (.json) e os documentos (.pdf) para aplicar a assinatura digital.</p>
+    <h2>Certificado Cachoeiras</h2>
     
-    <label>1. Carregar Certificados (Máx 5):</label>
-    <div class="upload-area">
-        <input type="file" id="certificados" accept=".json" multiple>
+    <div class="menu">
+        <button id="btnAbaAssinador" class="ativo" onclick="mudarAba('assinador')">Assinador</button>
+        <button id="btnAbaGerador" onclick="mudarAba('gerador')">Criar Certificado</button>
+        <button id="btnAbaValidador" onclick="mudarAba('validador')">Validar QR Code</button>
     </div>
 
-    <label>2. Carregar Documentos (Máx 3):</label>
-    <div class="upload-area">
-        <input type="file" id="documentos" accept="application/pdf" multiple>
+    <!-- TELA 1: ASSINADOR -->
+    <div id="tela-assinador" class="tela ativa">
+        <p>Insira os certificados (.json) e os documentos (.pdf) para assinar.</p>
+        <label>1. Carregar Certificados (Máx 5):</label>
+        <div class="upload-area"><input type="file" id="certificados" accept=".json" multiple></div>
+
+        <label>2. Carregar Documentos (Máx 3):</label>
+        <div class="upload-area"><input type="file" id="documentos" accept="application/pdf" multiple></div>
+
+        <button class="btn-acao" id="btnAssinar" onclick="iniciarAssinatura()">Assinar Documentos</button>
+        <div id="status-assinatura" style="margin-top: 15px; font-size: 14px; white-space: pre-line;"></div>
+        <div id="qrcode-hidden" style="display:none;"></div>
     </div>
 
-    <button id="btnAssinar" onclick="iniciarAssinatura()">Processar e Assinar Documentos</button>
-    
-    <div id="status"></div>
-    <div id="qrcode-hidden" style="display:none;"></div>
+    <!-- TELA 2: GERADOR -->
+    <div id="tela-gerador" class="tela">
+        <p>Gere uma credencial de assinatura digital.</p>
+        <label>Nome Completo:</label>
+        <input type="text" id="nome" placeholder="Ex: Lourran Martins Fonseca">
+        <div class="row">
+            <div class="col"><label>Data de Nascimento:</label><input type="date" id="data_nasc"></div>
+            <div class="col"><label>Local de Nascimento:</label><input type="text" id="local_nasc"></div>
+        </div>
+        <div class="row">
+            <div class="col">
+                <label>Identificação:</label>
+                <select id="tipo_id"><option value="CPF">CPF</option><option value="Matrícula">Matrícula</option></select>
+            </div>
+            <div class="col"><label>Número:</label><input type="text" id="numero_id"></div>
+        </div>
+        <label>Foto do Documento (RG/CNH):</label>
+        <input type="file" id="foto_rg" accept="image/png, image/jpeg">
+        <label>Foto do Rosto (Selfie):</label>
+        <input type="file" id="foto_selfie" accept="image/png, image/jpeg" capture="user">
+        
+        <button class="btn-acao" style="background:#2980b9;" id="btnGerar" onclick="gerarCertificado()">Criar e Baixar Certificado</button>
+    </div>
+
+    <!-- TELA 3: VALIDADOR -->
+    <div id="tela-validador" class="tela">
+        <p>Aponte a câmera para o QR Code impresso no documento.</p>
+        <button class="btn-acao" style="background:#e74c3c; margin-top:0;" id="btnStartCamera" onclick="iniciarScanner()">Ligar Câmera</button>
+        <div id="reader"></div>
+        
+        <div id="resultadoCaixa" class="resultado">
+            <h3 id="statusTitulo" style="margin-top:0;"></h3>
+            <p><strong>Nome:</strong> <span id="resNome"></span></p>
+            <p><strong>ID:</strong> <span id="resId"></span></p>
+            <p><strong>Data:</strong> <span id="resData"></span></p>
+            <p><strong>Local:</strong> <span id="resLocal"></span></p>
+        </div>
+    </div>
 </div>
 
 <script>
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js')
-          .then(() => console.log('Modo offline PWA ativado!'));
+    // --- LÓGICA DO PWA E NAVEGAÇÃO ---
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+
+    let html5QrcodeScanner;
+
+    function mudarAba(aba) {
+        document.querySelectorAll('.tela').forEach(t => t.classList.remove('ativa'));
+        document.querySelectorAll('.menu button').forEach(b => b.classList.remove('ativo'));
+        
+        document.getElementById(`tela-${aba}`).classList.add('ativa');
+        document.getElementById(`btnAba${aba.charAt(0).toUpperCase() + aba.slice(1)}`).classList.add('ativo');
+
+        // Desliga a câmera automaticamente se o usuário sair da aba de validação
+        if (aba !== 'validador' && html5QrcodeScanner) {
+            try { html5QrcodeScanner.stop(); document.getElementById('btnStartCamera').style.display = 'block'; } catch (e) {}
+        }
     }
 
+    // --- LÓGICA DO ASSINADOR ---
     async function obterLocalizacao() {
         return new Promise((resolve) => {
-            if (!navigator.geolocation) {
-                resolve("Localização não suportada");
-                return;
-            }
+            if (!navigator.geolocation) return resolve("Localização não suportada");
             navigator.geolocation.getCurrentPosition(async (pos) => {
                 try {
                     const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
                     const data = await resp.json();
                     resolve(data.address.city || data.address.town || data.address.municipality || "Localização identificada");
-                } catch (e) {
-                    resolve(`Lat: ${pos.coords.latitude.toFixed(2)}, Lon: ${pos.coords.longitude.toFixed(2)}`);
-                }
-            }, () => {
-                resolve("Cachoeiras de Macacu - RJ");
-            }, { timeout: 5000 });
+                } catch (e) { resolve(`Lat: ${pos.coords.latitude.toFixed(2)}, Lon: ${pos.coords.longitude.toFixed(2)}`); }
+            }, () => resolve("Cachoeiras de Macacu - RJ"), { timeout: 5000 });
         });
     }
 
     async function gerarQRCodeBase64(texto) {
         return new Promise((resolve) => {
-            const container = document.getElementById("qrcode-hidden");
-            container.innerHTML = ""; 
+            const container = document.getElementById("qrcode-hidden"); container.innerHTML = ""; 
             new QRCode(container, { text: texto, width: 128, height: 128 });
-            setTimeout(() => {
-                const canvas = container.querySelector("canvas");
-                resolve(canvas.toDataURL("image/png"));
-            }, 300);
+            setTimeout(() => resolve(container.querySelector("canvas").toDataURL("image/png")), 300);
         });
     }
 
-    async function lerArquivoComoArrayBuffer(file) {
+    async function lerArquivo(file, tipo) {
         return new Promise((resolve) => {
             const reader = new FileReader();
-            reader.readAsArrayBuffer(file);
-            reader.onload = () => resolve(reader.result);
-        });
-    }
-
-    async function lerArquivoComoTexto(file) {
-        return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.readAsText(file);
+            tipo === 'texto' ? reader.readAsText(file) : reader.readAsArrayBuffer(file);
             reader.onload = () => resolve(reader.result);
         });
     }
@@ -102,88 +158,111 @@
         const inputCerts = document.getElementById('certificados').files;
         const inputDocs = document.getElementById('documentos').files;
         const btn = document.getElementById('btnAssinar');
-        const status = document.getElementById('status');
+        const status = document.getElementById('status-assinatura');
 
-        if (inputCerts.length === 0 || inputDocs.length === 0) {
-            alert("Carregue ao menos um certificado e um documento PDF."); return;
-        }
+        if (inputCerts.length === 0 || inputDocs.length === 0) { alert("Carregue certificado e PDF."); return; }
 
-        btn.disabled = true;
-        status.innerText = "Capturando localização...\n";
-        const local_atual = await obterLocalizacao();
-        status.innerText += `Local: ${local_atual}\nLendo certificados...\n`;
+        btn.disabled = true; status.innerText = "Capturando localização...\n";
+        const local_atual = await obterLocalizacao(); status.innerText += `Local: ${local_atual}\nLendo arquivos...\n`;
 
         try {
             const assinantes = [];
-            for (let i = 0; i < inputCerts.length; i++) {
-                const textoJson = await lerArquivoComoTexto(inputCerts[i]);
-                assinantes.push(JSON.parse(textoJson));
-            }
+            for (let i = 0; i < inputCerts.length; i++) assinantes.push(JSON.parse(await lerArquivo(inputCerts[i], 'texto')));
 
             for (let d = 0; d < inputDocs.length; d++) {
-                status.innerText += `\nProcessando arquivo ${d+1}...\n`;
-                const docArrayBuffer = await lerArquivoComoArrayBuffer(inputDocs[d]);
-                const pdfDoc = await PDFLib.PDFDocument.load(docArrayBuffer);
+                const pdfDoc = await PDFLib.PDFDocument.load(await lerArquivo(inputDocs[d], 'buffer'));
                 const primeiraPagina = pdfDoc.getPages()[0];
 
                 for (let a = 0; a < assinantes.length; a++) {
-                    const assinante = assinantes[a];
+                    const dados = assinantes[a].servidor;
                     const dataHoraStr = new Date().toLocaleString('pt-BR');
+                    const qrData = JSON.stringify({ n: dados.nome, id: dados.numero_identificacao, d: dataHoraStr, l: local_atual, v: "Valido - Certificado Cachoeiras" });
                     
-                    // Extrai os dados do nó "servidor" gerado no Ambiente 1
-                    const nomeTitular = assinante.servidor ? assinante.servidor.nome : "Usuário Não Identificado";
-                    const idTitular = assinante.servidor ? assinante.servidor.numero_identificacao : "ID Não Identificado";
-                    
-                    const qrData = JSON.stringify({
-                        n: nomeTitular,
-                        id: idTitular,
-                        d: dataHoraStr,
-                        l: local_atual,
-                        v: "Valido - Certificado Cachoeiras"
-                    });
-                    
-                    const qrBase64 = await gerarQRCodeBase64(qrData);
-                    const qrImage = await pdfDoc.embedPng(qrBase64);
+                    const qrImage = await pdfDoc.embedPng(await gerarQRCodeBase64(qrData));
+                    const posX = primeiraPagina.getWidth() - 240; const posY = 20 + (a * 90);
 
-                    const carimboLargura = 220; 
-                    const carimboAltura = 80;
-                    const posX = primeiraPagina.getWidth() - carimboLargura - 20; 
-                    const posY = 20 + (a * (carimboAltura + 10));
-
-                    primeiraPagina.drawRectangle({
-                        x: posX, y: posY, width: carimboLargura, height: carimboAltura,
-                        color: PDFLib.rgb(0.88, 0.95, 0.99),
-                        borderColor: PDFLib.rgb(0, 0, 0),
-                        borderWidth: 1,
-                    });
-
+                    primeiraPagina.drawRectangle({ x: posX, y: posY, width: 220, height: 80, color: PDFLib.rgb(0.88, 0.95, 0.99), borderColor: PDFLib.rgb(0, 0, 0), borderWidth: 1 });
                     primeiraPagina.drawImage(qrImage, { x: posX + 5, y: posY + 5, width: 70, height: 70 });
 
                     const fonte = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
                     const fonteNorm = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
 
                     primeiraPagina.drawText("ASSINADO DIGITALMENTE", { x: posX + 80, y: posY + 65, size: 8, font: fonte });
-                    primeiraPagina.drawText(`Nome: ${nomeTitular.substring(0, 22)}`, { x: posX + 80, y: posY + 50, size: 7, font: fonteNorm });
-                    primeiraPagina.drawText(`ID: ${idTitular}`, { x: posX + 80, y: posY + 38, size: 7, font: fonteNorm });
+                    primeiraPagina.drawText(`Nome: ${dados.nome.substring(0, 22)}`, { x: posX + 80, y: posY + 50, size: 7, font: fonteNorm });
+                    primeiraPagina.drawText(`ID: ${dados.numero_identificacao}`, { x: posX + 80, y: posY + 38, size: 7, font: fonteNorm });
                     primeiraPagina.drawText(`Data: ${dataHoraStr}`, { x: posX + 80, y: posY + 26, size: 7, font: fonteNorm });
                     primeiraPagina.drawText(`Local: ${local_atual.substring(0, 25)}`, { x: posX + 80, y: posY + 14, size: 7, font: fonteNorm });
                 }
 
-                const pdfBytes = await pdfDoc.save();
-                const blob = new Blob([pdfBytes], { type: "application/pdf" });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = inputDocs[d].name.replace('.pdf', '_ASSINADO.pdf');
+                const url = URL.createObjectURL(new Blob([await pdfDoc.save()], { type: "application/pdf" }));
+                const link = document.createElement('a'); link.href = url; link.download = inputDocs[d].name.replace('.pdf', '_ASSINADO.pdf');
                 document.body.appendChild(link); link.click(); document.body.removeChild(link);
-                URL.revokeObjectURL(url);
             }
-            status.innerText += `\nConcluído! Documentos assinados.`;
-        } catch (erro) {
-            status.innerText += `\nErro: ${erro.message}`;
-        } finally {
-            btn.disabled = false;
+            status.innerText += `\nConcluído!`;
+        } catch (erro) { status.innerText += `\nErro: ${erro.message}`; } finally { btn.disabled = false; }
+    }
+
+    // --- LÓGICA DO GERADOR ---
+    async function gerarCertificado() {
+        const nome = document.getElementById("nome").value.trim();
+        const dataNasc = document.getElementById("data_nasc").value;
+        const localNasc = document.getElementById("local_nasc").value.trim();
+        const tipoId = document.getElementById("tipo_id").value;
+        const numeroId = document.getElementById("numero_id").value.trim();
+        const inputRg = document.getElementById("foto_rg").files[0];
+        const inputSelfie = document.getElementById("foto_selfie").files[0];
+        const btn = document.getElementById("btnGerar");
+        
+        if(!nome || !dataNasc || !localNasc || !numeroId || !inputRg || !inputSelfie) { alert("Preencha todos os campos e anexe as fotos."); return; }
+
+        try {
+            btn.innerText = "Processando..."; btn.disabled = true;
+            const base64Rg = await new Promise(r => { const rd = new FileReader(); rd.onload = () => r(rd.result); rd.readAsDataURL(inputRg); });
+            const base64Selfie = await new Promise(r => { const rd = new FileReader(); rd.onload = () => r(rd.result); rd.readAsDataURL(inputSelfie); });
+
+            const keyPair = await window.crypto.subtle.generateKey({ name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" }, true, ["sign", "verify"]);
+            const jwk = await window.crypto.subtle.exportKey("jwk", keyPair.privateKey);
+            jwk.servidor = { nome, data_nascimento: dataNasc, local_nascimento: localNasc, tipo_identificacao: tipoId, numero_identificacao: numeroId, data_emissao: new Date().toISOString(), evidencias: { rg_base64: base64Rg, selfie_base64: base64Selfie } };
+
+            const blob = new Blob([JSON.stringify(jwk, null, 2)], { type: "application/json" });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = "certificado_" + nome.replace(/\s+/g, '_').toLowerCase() + ".json";
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            
+            alert("Sucesso! Certificado gerado."); btn.innerText = "Criar e Baixar Certificado"; btn.disabled = false;
+        } catch (e) { alert("Erro ao gerar chaves."); btn.innerText = "Criar e Baixar Certificado"; btn.disabled = false; }
+    }
+
+    // --- LÓGICA DO VALIDADOR ---
+    function iniciarScanner() {
+        document.getElementById('btnStartCamera').style.display = 'none';
+        document.getElementById('resultadoCaixa').style.display = 'none';
+        
+        html5QrcodeScanner = new Html5Qrcode("reader");
+        html5QrcodeScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, sucessoLeitura, () => {})
+        .catch(err => { alert("Erro ao ligar a câmera."); document.getElementById('btnStartCamera').style.display = 'block'; });
+    }
+
+    function sucessoLeitura(textoDecodificado) {
+        html5QrcodeScanner.stop();
+        document.getElementById('btnStartCamera').style.display = 'block';
+        document.getElementById('btnStartCamera').innerText = "Escanear Outro";
+
+        const caixa = document.getElementById('resultadoCaixa');
+        const titulo = document.getElementById('statusTitulo');
+
+        try {
+            const dados = JSON.parse(textoDecodificado);
+            if(dados.v === "Valido - Certificado Cachoeiras") {
+                caixa.className = "resultado valido"; titulo.innerText = "✓ Assinatura Reconhecida"; titulo.style.color = "#27ae60";
+                document.getElementById('resNome').innerText = dados.n; document.getElementById('resId').innerText = dados.id;
+                document.getElementById('resData').innerText = dados.d; document.getElementById('resLocal').innerText = dados.l;
+            } else { throw new Error(); }
+        } catch (e) {
+            caixa.className = "resultado invalido"; titulo.innerText = "⚠ Assinatura Inválida"; titulo.style.color = "#e74c3c";
+            document.getElementById('resNome').innerText = "Desconhecido"; document.getElementById('resId').innerText = "Desconhecido";
+            document.getElementById('resData').innerText = "-"; document.getElementById('resLocal').innerText = "QR Code não pertence ao sistema.";
         }
+        caixa.style.display = 'block';
     }
 </script>
 </body>
