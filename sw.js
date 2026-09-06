@@ -1,4 +1,4 @@
-const CACHE_NAME = 'certificado-cachoeiras-v2.1';
+const CACHE_NAME = 'certificado-cachoeiras-v2.10';
 const urlsToCache = [
   './index.html',
   './gerador.html',
