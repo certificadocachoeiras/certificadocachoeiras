@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Certificado Cachoeiras</title>
+    <title>Assinatura Eletrônica Verificável - Certificado Cachoeiras</title>
     <link rel="manifest" href="manifest.json">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
@@ -15,7 +15,8 @@
     <style>
         body { font-family: Arial, sans-serif; padding: 20px; background-color: #eef2f5; margin: 0; }
         .container { background: white; padding: 25px; border-radius: 8px; max-width: 800px; margin: auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        h2 { margin-top: 0; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        h2 { margin-top: 0; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 5px; }
+        .disclaimer { font-size: 11px; color: #7f8c8d; margin-bottom: 20px; line-height: 1.4; background: #f9f9f9; padding: 10px; border-left: 3px solid #f1c40f; }
         
         .menu { display: flex; gap: 5px; margin-bottom: 20px; background: #ecf0f1; padding: 5px; border-radius: 6px; }
         .menu button { flex: 1; padding: 12px; background: transparent; border: none; font-weight: bold; color: #7f8c8d; cursor: pointer; border-radius: 4px; transition: 0.3s; }
@@ -27,40 +28,45 @@
 
         label { font-weight: bold; display: block; margin-top: 15px; color: #444; font-size: 14px; }
         input, select { width: 100%; padding: 10px; margin-top: 5px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        input[type="checkbox"] { width: auto; transform: scale(1.2); margin-right: 8px; }
+        .checkbox-container { display: flex; align-items: flex-start; margin-top: 20px; font-size: 13px; color: #333; background: #fdf2e9; padding: 10px; border: 1px solid #f5b041; border-radius: 4px; }
+        
         .row { display: flex; gap: 10px; }
         .col { flex: 1; }
         .btn-acao { margin-top: 25px; padding: 15px; width: 100%; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: bold; }
         .btn-acao:disabled { background: #95a5a6; cursor: not-allowed; }
         .upload-area { border: 2px dashed #3498db; padding: 20px; text-align: center; border-radius: 6px; margin-top: 15px; background-color: #f7fbfe; }
+        .password-list { margin-top: 10px; background: #f4f6f7; padding: 10px; border-radius: 6px; display: none; }
         
-        /* Estilos do Preview Canvas */
         #preview-container { position: relative; margin-top: 15px; display: none; border: 1px solid #ccc; background: #ddd; max-height: 500px; overflow-y: auto; text-align: center; }
         #pdf-canvas { display: block; margin: 0 auto; box-shadow: 0 0 5px rgba(0,0,0,0.3); }
-        /* O touch-action: none impede que o celular role a tela enquanto você desenha */
         #overlay { position: absolute; top: 0; left: 50%; transform: translateX(-50%); cursor: crosshair; z-index: 10; touch-action: none; }
         #selection-box { position: absolute; border: 2px dashed #e74c3c; background: rgba(231, 76, 60, 0.2); display: none; pointer-events: none; z-index: 20; }
         
-        /* Validador */
         #reader { width: 100%; margin-top: 15px; border-radius: 8px; overflow: hidden; background: #000; }
         .resultado { margin-top: 20px; padding: 15px; border-radius: 6px; display: none; background: #ecf0f1; color: #2c3e50; }
         .valido { border-left: 6px solid #27ae60; }
         .invalido { border-left: 6px solid #e74c3c; }
+        .alerta { border-left: 6px solid #f39c12; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h2>Certificado Cachoeiras</h2>
+    <div class="disclaimer">
+        <strong>Assinatura Eletrônica Verificável:</strong> Este sistema fornece identificação, evidências visuais e verificação criptográfica local. Ele não substitui certificados qualificados ICP-Brasil em atos onde a lei expressamente o exigir. As operações são matemáticas e ocorrem 100% no seu navegador, sem envio de dados a servidores externos.
+    </div>
     
     <div class="menu">
-        <button id="btnAbaAssinador" class="ativo" onclick="mudarAba('assinador')">Assinador</button>
-        <button id="btnAbaGerador" onclick="mudarAba('gerador')">Criar Certificado</button>
-        <button id="btnAbaValidador" onclick="mudarAba('validador')">Validar QR Code</button>
+        <button id="btnAbaAssinador" class="ativo" onclick="mudarAba('assinador')">Assinar</button>
+        <button id="btnAbaGerador" onclick="mudarAba('gerador')">Criar Credencial</button>
+        <button id="btnAbaValidador" onclick="mudarAba('validador')">Auditar QR Code</button>
     </div>
 
     <!-- TELA 1: ASSINADOR -->
     <div id="tela-assinador" class="tela ativa">
-        <p>1. Carregue os documentos. 2. Desenhe o tamanho e o local da assinatura no visualizador. 3. Assine.</p>
+        <p>Desenhe o local da assinatura no documento, insira suas credenciais e senhas.</p>
         
         <div class="upload-area"><input type="file" id="documentos" accept="application/pdf" multiple onchange="renderizarPreviewPDF(this)"></div>
 
@@ -70,45 +76,74 @@
                 <div id="overlay"></div>
                 <div id="selection-box"></div>
             </div>
-            <p style="font-size: 12px; color: #555; padding: 5px;">Clique/Toque e arraste no documento acima para delimitar onde a assinatura será estampada.</p>
+            <p style="font-size: 12px; color: #555; padding: 5px;">Clique/Toque e arraste no documento para delimitar o tamanho da assinatura.</p>
         </div>
 
-        <label style="margin-top:20px;">Carregar Certificados (Máx 5):</label>
-        <div class="upload-area"><input type="file" id="certificados" accept=".json" multiple></div>
+        <label style="margin-top:20px;">Carregar Credenciais (Máx 5):</label>
+        <div class="upload-area"><input type="file" id="certificados" accept=".json" multiple onchange="gerarCamposSenha(this)"></div>
+        <div id="password-list-container" class="password-list"></div>
 
-        <button class="btn-acao" id="btnAssinar" onclick="iniciarAssinatura()">Assinar Documentos</button>
+        <button class="btn-acao" id="btnAssinar" onclick="iniciarAssinatura()">Verificar Senhas e Assinar Documentos</button>
         <div id="status-assinatura" style="margin-top: 15px; font-size: 14px; white-space: pre-line;"></div>
         <div id="qrcode-hidden" style="display:none;"></div>
     </div>
 
     <!-- TELA 2: GERADOR -->
     <div id="tela-gerador" class="tela">
-        <p>Gere uma credencial de assinatura digital.</p>
-        <label>Nome Completo:</label><input type="text" id="nome" placeholder="Ex: Lourran Martins Fonseca">
+        <p>Crie uma credencial blindada por senha. <br><strong style="color:#c0392b; font-size: 12px;">ATENÇÃO: Guarde o arquivo e a senha em local seguro. O sistema não armazena sua senha. Se perdê-la, a credencial será inutilizada. Não compartilhe este arquivo com ninguém.</strong></p>
+        
+        <label>Nome Completo:</label><input type="text" id="nome" placeholder="Seu nome oficial">
         <div class="row">
-            <div class="col"><label>Data Nasc.:</label><input type="date" id="data_nasc"></div>
-            <div class="col"><label>Local Nasc.:</label><input type="text" id="local_nasc"></div>
+            <div class="col"><label>Data Nascimento:</label><input type="date" id="data_nasc"></div>
+            <div class="col"><label>Local Nascimento:</label><input type="text" id="local_nasc" placeholder="Cidade - UF"></div>
         </div>
         <div class="row">
-            <div class="col"><label>Identificação:</label><select id="tipo_id"><option value="CPF">CPF</option><option value="Matrícula">Matrícula</option></select></div>
+            <div class="col"><label>Documento:</label><select id="tipo_id"><option value="CPF">CPF</option><option value="RG">RG</option><option value="Matrícula">Matrícula</option></select></div>
             <div class="col"><label>Número:</label><input type="text" id="numero_id"></div>
         </div>
-        <label>Foto do Documento (RG/CNH):</label><input type="file" id="foto_rg" accept="image/png, image/jpeg">
-        <label>Foto do Rosto (Selfie):</label><input type="file" id="foto_selfie" accept="image/png, image/jpeg" capture="user">
-        <button class="btn-acao" style="background:#2980b9;" id="btnGerar" onclick="gerarCertificado()">Criar e Baixar Certificado</button>
+        
+        <label>Foto do Documento (Frente e Verso / CNH aberta):</label>
+        <input type="file" id="foto_rg" accept="image/png, image/jpeg">
+        
+        <label>Selfie segurando o Documento:</label>
+        <p style="font-size: 11px; margin: 2px 0 8px 0; color: #555;">Tire uma foto onde o seu rosto e o documento de identidade estejam claramente legíveis ao mesmo tempo.</p>
+        <input type="file" id="foto_selfie" accept="image/png, image/jpeg" capture="user">
+        
+        <div class="row">
+            <div class="col"><label>Senha da Credencial:</label><input type="password" id="senha1" placeholder="Crie uma senha forte"></div>
+            <div class="col"><label>Confirmar Senha:</label><input type="password" id="senha2" placeholder="Repita a senha"></div>
+        </div>
+
+        <div class="checkbox-container">
+            <input type="checkbox" id="declaro_veracidade">
+            <label for="declaro_veracidade" style="margin: 0; font-weight: normal; cursor: pointer;">
+                Declaro, sob as penas da lei, que o documento apresentado pertence a mim, que a fotografia foi realizada por mim no momento da emissão desta credencial e assumo total responsabilidade civil e criminal pelo uso das chaves criptográficas geradas.
+            </label>
+        </div>
+
+        <button class="btn-acao" style="background:#2980b9;" id="btnGerar" onclick="gerarCertificado()">Criar e Proteger Credencial</button>
     </div>
 
     <!-- TELA 3: VALIDADOR -->
     <div id="tela-validador" class="tela">
-        <p>Aponte a câmera para o QR Code impresso no documento.</p>
-        <button class="btn-acao" style="background:#e74c3c; margin-top:0;" id="btnStartCamera" onclick="iniciarScanner()">Ligar Câmera</button>
+        <p>Aponte a câmera para o QR Code impresso no documento para verificar a assinatura criptográfica.</p>
+        <button class="btn-acao" style="background:#2c3e50; margin-top:0;" id="btnStartCamera" onclick="iniciarScanner()">Ligar Câmera</button>
         <div id="reader"></div>
+        
         <div id="resultadoCaixa" class="resultado">
             <h3 id="statusTitulo" style="margin-top:0;"></h3>
-            <p><strong>Nome:</strong> <span id="resNome"></span></p>
+            <p><strong>Status Criptográfico:</strong> <span id="resCrypto"></span></p>
+            <p><strong>Assinante:</strong> <span id="resNome"></span></p>
             <p><strong>ID:</strong> <span id="resId"></span></p>
-            <p><strong>Data:</strong> <span id="resData"></span></p>
-            <p><strong>Local:</strong> <span id="resLocal"></span></p>
+            <p><strong>Data da Assinatura:</strong> <span id="resData"></span></p>
+            <p><strong>ID da Assinatura:</strong> <span id="resSigId" style="font-size:11px; font-family:monospace;"></span></p>
+            
+            <div style="margin-top:15px; padding-top:15px; border-top: 1px solid #ccc;">
+                <strong>Verificação de Integridade do Documento (Opcional)</strong>
+                <p style="font-size: 12px; color: #555;">Para garantir que o documento não foi alterado, faça o upload do <b>PDF ORIGINAL (versão antes de receber o carimbo da assinatura)</b>.</p>
+                <input type="file" id="pdf_original_auditoria" accept="application/pdf" onchange="verificarHashPDF(this)">
+                <p id="resHashDocumento" style="font-weight:bold; margin-top:10px;"></p>
+            </div>
         </div>
     </div>
 </div>
@@ -127,96 +162,136 @@
         }
     }
 
-    // --- LÓGICA DO PREVIEW E DESENHO ---
-    let selectionRect = null;
+    // --- MOTOR CRIPTOGRÁFICO WEB CRYPTO API ---
+    const enc = new TextEncoder();
+    const dec = new TextDecoder();
 
+    function arrayBufferToBase64(buffer) {
+        let binary = '';
+        let bytes = new Uint8Array(buffer);
+        for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+        return window.btoa(binary);
+    }
+
+    function base64ToArrayBuffer(base64) {
+        let binary_string = window.atob(base64);
+        let bytes = new Uint8Array(binary_string.length);
+        for (let i = 0; i < binary_string.length; i++) bytes[i] = binary_string.charCodeAt(i);
+        return bytes.buffer;
+    }
+
+    function uuidv4() {
+        return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+            (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+        );
+    }
+
+    async function hashDocument(arrayBuffer) {
+        const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function getPasswordKey(password) {
+        return crypto.subtle.importKey("raw", enc.encode(password), {name: "PBKDF2"}, false, ["deriveKey"]);
+    }
+
+    async function deriveAESKey(passwordKey, salt) {
+        return crypto.subtle.deriveKey(
+            { name: "PBKDF2", salt: salt, iterations: 100000, hash: "SHA-256" },
+            passwordKey, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
+        );
+    }
+
+    async function encryptPayload(payloadObj, password) {
+        const salt = crypto.getRandomValues(new Uint8Array(16));
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const passwordKey = await getPasswordKey(password);
+        const aesKey = await deriveAESKey(passwordKey, salt);
+        const ciphertext = await crypto.subtle.encrypt(
+            { name: "AES-GCM", iv: iv }, aesKey, enc.encode(JSON.stringify(payloadObj))
+        );
+        return { salt: arrayBufferToBase64(salt), iv: arrayBufferToBase64(iv), ciphertext: arrayBufferToBase64(ciphertext) };
+    }
+
+    async function decryptPayload(cryptoObj, password) {
+        try {
+            const salt = base64ToArrayBuffer(cryptoObj.salt);
+            const iv = base64ToArrayBuffer(cryptoObj.iv);
+            const ciphertext = base64ToArrayBuffer(cryptoObj.ciphertext);
+            const passwordKey = await getPasswordKey(password);
+            const aesKey = await deriveAESKey(passwordKey, salt);
+            const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, aesKey, ciphertext);
+            return JSON.parse(dec.decode(decrypted));
+        } catch (e) { return null; /* Senha incorreta ou arquivo corrompido */ }
+    }
+
+    // --- LÓGICA DO PREVIEW DE PDF (Assinador) ---
+    let selectionRect = null;
     async function renderizarPreviewPDF(input) {
         if (input.files.length === 0) return;
         const file = input.files[0];
-        const arrayBuffer = await lerArquivo(file, 'buffer');
-        
-        const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-        const page = await pdf.getPage(1);
-        
-        const viewport = page.getViewport({ scale: 1.0 });
-        
-        const scale = 500 / viewport.width;
-        const scaledViewport = page.getViewport({ scale: scale });
-
-        const canvas = document.getElementById('pdf-canvas');
-        const context = canvas.getContext('2d');
-        canvas.width = scaledViewport.width;
-        canvas.height = scaledViewport.height;
-
-        const overlay = document.getElementById('overlay');
-        overlay.style.width = canvas.width + 'px';
-        overlay.style.height = canvas.height + 'px';
-
-        document.getElementById('preview-container').style.display = 'block';
-        await page.render({ canvasContext: context, viewport: scaledViewport }).promise;
-        
-        configurarDesenho();
+        const reader = new FileReader();
+        reader.readAsArrayBuffer(file);
+        reader.onload = async () => {
+            const pdf = await pdfjsLib.getDocument(reader.result).promise;
+            const page = await pdf.getPage(1);
+            const viewport = page.getViewport({ scale: 1.0 });
+            const scale = 500 / viewport.width;
+            const scaledViewport = page.getViewport({ scale: scale });
+            const canvas = document.getElementById('pdf-canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = scaledViewport.width;
+            canvas.height = scaledViewport.height;
+            const overlay = document.getElementById('overlay');
+            overlay.style.width = canvas.width + 'px';
+            overlay.style.height = canvas.height + 'px';
+            document.getElementById('preview-container').style.display = 'block';
+            await page.render({ canvasContext: context, viewport: scaledViewport }).promise;
+            configurarDesenho();
+        };
     }
 
     function configurarDesenho() {
         const overlay = document.getElementById('overlay');
         const selBox = document.getElementById('selection-box');
-        
-        let isDrawing = false;
-        let startX, startY;
-
+        let isDrawing = false; let startX, startY;
         function getCoordinates(e) {
             const rect = overlay.getBoundingClientRect();
-            if (e.touches && e.touches.length > 0) {
-                return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
-            }
+            if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
             return { x: e.clientX - rect.left, y: e.clientY - rect.top };
         }
-
-        // Os eventos sobrescrevem os antigos automaticamente, sem causar duplicação de funções
         overlay.onmousedown = overlay.ontouchstart = (e) => {
-            isDrawing = true;
-            const coords = getCoordinates(e);
-            startX = coords.x;
-            startY = coords.y;
-            selBox.style.display = 'block';
-            selBox.style.left = startX + 'px';
-            selBox.style.top = startY + 'px';
-            selBox.style.width = '0px';
-            selBox.style.height = '0px';
+            isDrawing = true; const coords = getCoordinates(e);
+            startX = coords.x; startY = coords.y;
+            selBox.style.display = 'block'; selBox.style.left = startX + 'px'; selBox.style.top = startY + 'px'; selBox.style.width = '0px'; selBox.style.height = '0px';
         };
-
         overlay.onmousemove = overlay.ontouchmove = (e) => {
-            if (!isDrawing) return;
-            const coords = getCoordinates(e);
-            const w = coords.x - startX;
-            const h = coords.y - startY;
-            selBox.style.left = (w < 0 ? coords.x : startX) + 'px';
-            selBox.style.top = (h < 0 ? coords.y : startY) + 'px';
-            selBox.style.width = Math.abs(w) + 'px';
-            selBox.style.height = Math.abs(h) + 'px';
+            if (!isDrawing) return; const coords = getCoordinates(e);
+            const w = coords.x - startX; const h = coords.y - startY;
+            selBox.style.left = (w < 0 ? coords.x : startX) + 'px'; selBox.style.top = (h < 0 ? coords.y : startY) + 'px';
+            selBox.style.width = Math.abs(w) + 'px'; selBox.style.height = Math.abs(h) + 'px';
         };
-
         overlay.onmouseup = overlay.onmouseleave = overlay.ontouchend = overlay.ontouchcancel = (e) => {
-            if (!isDrawing) return;
-            isDrawing = false;
-            
-            const ow = overlay.offsetWidth;
-            const oh = overlay.offsetHeight;
-            
-            // Segurança contra divisão por zero e falhas de leitura
+            if (!isDrawing) return; isDrawing = false;
+            const ow = overlay.offsetWidth; const oh = overlay.offsetHeight;
             if (ow === 0 || oh === 0) return;
-            
-            selectionRect = {
-                x: parseFloat(selBox.style.left) / ow,
-                y: parseFloat(selBox.style.top) / oh,
-                w: parseFloat(selBox.style.width) / ow,
-                h: parseFloat(selBox.style.height) / oh
-            };
+            selectionRect = { x: parseFloat(selBox.style.left)/ow, y: parseFloat(selBox.style.top)/oh, w: parseFloat(selBox.style.width)/ow, h: parseFloat(selBox.style.height)/oh };
         };
     }
 
     // --- LÓGICA DO ASSINADOR ---
+    function gerarCamposSenha(input) {
+        const container = document.getElementById('password-list-container');
+        container.innerHTML = '';
+        if(input.files.length > 0) {
+            container.style.display = 'block';
+            Array.from(input.files).forEach((f, i) => {
+                container.innerHTML += `<div style="margin-bottom:10px;"><label style="margin-top:5px; font-size:12px;">Senha da credencial <b>${f.name}</b>:</label><input type="password" id="pwd_cert_${i}" placeholder="Digite a senha para descriptografar"></div>`;
+            });
+        } else { container.style.display = 'none'; }
+    }
+
     async function obterLocalizacao() {
         return new Promise((resolve) => {
             if (!navigator.geolocation) return resolve("Localização não suportada");
@@ -233,17 +308,16 @@
     async function gerarQRCodeBase64(texto) {
         return new Promise((resolve) => {
             const container = document.getElementById("qrcode-hidden"); container.innerHTML = ""; 
-            new QRCode(container, { text: texto, width: 256, height: 256 });
+            new QRCode(container, { text: texto, width: 300, height: 300, correctLevel: QRCode.CorrectLevel.L });
             setTimeout(() => resolve(container.querySelector("canvas").toDataURL("image/png")), 300);
         });
     }
 
-    async function lerArquivo(file, tipo) {
-        return new Promise((resolve) => {
-            const reader = new FileReader();
-            tipo === 'texto' ? reader.readAsText(file) : reader.readAsArrayBuffer(file);
-            reader.onload = () => resolve(reader.result);
-        });
+    async function lerArquivoBuffer(file) {
+        return new Promise(resolve => { const r = new FileReader(); r.readAsArrayBuffer(file); r.onload = () => resolve(r.result); });
+    }
+    async function lerArquivoTexto(file) {
+        return new Promise(resolve => { const r = new FileReader(); r.readAsText(file); r.onload = () => resolve(r.result); });
     }
 
     async function iniciarAssinatura() {
@@ -252,97 +326,117 @@
         const btn = document.getElementById('btnAssinar');
         const status = document.getElementById('status-assinatura');
 
-        if (inputCerts.length === 0 || inputDocs.length === 0) { 
-            alert("Carregue o certificado (.json) e o documento (.pdf)."); 
-            return; 
-        }
+        if (inputCerts.length === 0 || inputDocs.length === 0) { alert("Carregue credencial e PDF."); return; }
+        if (!selectionRect || isNaN(selectionRect.w) || selectionRect.w === 0) { alert("Desenhe na imagem o local da assinatura."); return; }
+
+        btn.disabled = true; status.innerText = "Processando credenciais...\n";
         
-        // Bloqueio de segurança que evita o erro NaN reportado
-        if (!selectionRect || isNaN(selectionRect.w) || selectionRect.w === 0) { 
-            alert("Por favor, clique e arraste no documento para desenhar o retângulo onde a assinatura deve ficar."); 
-            return; 
+        let assinantesValidados = [];
+        for (let i = 0; i < inputCerts.length; i++) {
+            const pwd = document.getElementById(`pwd_cert_${i}`).value;
+            if(!pwd) { alert(`Digite a senha para ${inputCerts[i].name}`); btn.disabled = false; return; }
+            const jsonCred = JSON.parse(await lerArquivoTexto(inputCerts[i]));
+            
+            const decryptedData = await decryptPayload(jsonCred.crypto, pwd);
+            if(!decryptedData) { alert(`SENHA INCORRETA para a credencial ${jsonCred.public_name}. Assinatura abortada.`); btn.disabled = false; return; }
+            
+            // Importa a chave privada em memória
+            const privateKey = await crypto.subtle.importKey("jwk", decryptedData.privateKey, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]);
+            
+            assinantesValidados.push({
+                cid: jsonCred.credential_id,
+                name: jsonCred.public_name,
+                pubKey: jsonCred.public_key,
+                identificacao: decryptedData.tipo_identificacao + " " + decryptedData.numero_identificacao,
+                privKeyObj: privateKey
+            });
+            // Minimiza dados na memória
+            decryptedData.selfie_base64 = null; decryptedData.rg_base64 = null; 
         }
 
-        btn.disabled = true; status.innerText = "Capturando localização...\n";
-        const local_atual = await obterLocalizacao(); status.innerText += `Local: ${local_atual}\nLendo arquivos...\n`;
+        status.innerText += "Capturando localização...\n";
+        const local_atual = await obterLocalizacao(); 
 
         try {
-            const assinantes = [];
-            for (let i = 0; i < inputCerts.length; i++) assinantes.push(JSON.parse(await lerArquivo(inputCerts[i], 'texto')));
-
             for (let d = 0; d < inputDocs.length; d++) {
-                const pdfDoc = await PDFLib.PDFDocument.load(await lerArquivo(inputDocs[d], 'buffer'));
+                status.innerText += `Assinando documento ${d+1}...\n`;
+                const arrayBufferOriginal = await lerArquivoBuffer(inputDocs[d]);
+                const docHash = await hashDocument(arrayBufferOriginal); // HASH DO ARQUIVO ORIGINAL
+                
+                const pdfDoc = await PDFLib.PDFDocument.load(arrayBufferOriginal);
                 const primeiraPagina = pdfDoc.getPages()[0];
-                const pdfW = primeiraPagina.getWidth();
-                const pdfH = primeiraPagina.getHeight();
+                const pdfW = primeiraPagina.getWidth(); const pdfH = primeiraPagina.getHeight();
+                const boxW = selectionRect.w * pdfW; const boxH = selectionRect.h * pdfH;
+                const boxX = selectionRect.x * pdfW; const startY_PDF = pdfH - (selectionRect.y * pdfH);
 
-                const boxW = selectionRect.w * pdfW;
-                const boxH = selectionRect.h * pdfH;
-                const boxX = selectionRect.x * pdfW;
-                const startY_PDF = pdfH - (selectionRect.y * pdfH);
-
-                for (let a = 0; a < assinantes.length; a++) {
-                    const dados = assinantes[a].servidor;
+                for (let a = 0; a < assinantesValidados.length; a++) {
+                    const assinante = assinantesValidados[a];
                     const dataHoraStr = new Date().toLocaleString('pt-BR');
-                    const qrData = JSON.stringify({ n: dados.nome, id: dados.numero_identificacao, d: dataHoraStr, l: local_atual, v: "Valido - Certificado Cachoeiras" });
+                    const signatureId = uuidv4();
                     
-                    const qrImage = await pdfDoc.embedPng(await gerarQRCodeBase64(qrData));
+                    // Payload a ser assinado (string fixa para evitar ordenação de chaves JSON no validador)
+                    const payloadToSign = `{"v":"1.0","cid":"${assinante.cid}","sid":"${signatureId}","n":"${assinante.name}","d":"${dataHoraStr}","l":"${local_atual}","h":"${docHash}"}`;
                     
-                    const gap = 10;
-                    const currentY = startY_PDF - boxH - (a * (boxH + gap));
+                    // Assinatura criptográfica matemática do Payload
+                    const signatureBuffer = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", assinante.privKeyObj, enc.encode(payloadToSign));
+                    const signatureBase64 = arrayBufferToBase64(signatureBuffer);
+
+                    // Estrutura robusta do QR Code (Payload Literal + Chave Pública Resumida + Assinatura Digital)
+                    const finalQRData = JSON.stringify({ p: payloadToSign, pk: { n: assinante.pubKey.n, e: assinante.pubKey.e }, s: signatureBase64 });
+                    
+                    const qrImage = await pdfDoc.embedPng(await gerarQRCodeBase64(finalQRData));
+                    const currentY = startY_PDF - boxH - (a * (boxH + 10));
 
                     primeiraPagina.drawRectangle({ x: boxX, y: currentY, width: boxW, height: boxH, color: PDFLib.rgb(0.88, 0.95, 0.99), borderColor: PDFLib.rgb(0, 0, 0), borderWidth: 1 });
 
                     const fonte = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
                     const fonteNorm = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
-                    const isVertical = boxH > boxW;
                     const padding = 5;
 
-                    if (!isVertical) {
+                    if (boxH <= boxW) {
                         const qrSize = boxH - (padding * 2);
                         primeiraPagina.drawImage(qrImage, { x: boxX + padding, y: currentY + padding, width: qrSize, height: qrSize });
-                        
                         const textX = boxX + qrSize + (padding * 2);
                         const baseFontSize = Math.min(Math.max(boxH * 0.12, 4), 12); 
                         const lineSpc = baseFontSize * 1.3;
                         let textY = currentY + boxH - padding - baseFontSize;
 
-                        primeiraPagina.drawText("ASSINADO DIGITALMENTE", { x: textX, y: textY, size: baseFontSize + 1, font: fonte }); textY -= lineSpc;
-                        primeiraPagina.drawText(`Nome: ${dados.nome.substring(0, 25)}`, { x: textX, y: textY, size: baseFontSize, font: fonteNorm }); textY -= lineSpc;
-                        primeiraPagina.drawText(`ID: ${dados.numero_identificacao}`, { x: textX, y: textY, size: baseFontSize, font: fonteNorm }); textY -= lineSpc;
+                        primeiraPagina.drawText("ASSINATURA VERIFICÁVEL", { x: textX, y: textY, size: baseFontSize + 1, font: fonte, color: PDFLib.rgb(0.1, 0.5, 0.2) }); textY -= lineSpc;
+                        primeiraPagina.drawText(`Nome: ${assinante.name.substring(0, 25)}`, { x: textX, y: textY, size: baseFontSize, font: fonteNorm }); textY -= lineSpc;
+                        primeiraPagina.drawText(`ID: ${assinante.identificacao}`, { x: textX, y: textY, size: baseFontSize, font: fonteNorm }); textY -= lineSpc;
                         primeiraPagina.drawText(`Data: ${dataHoraStr}`, { x: textX, y: textY, size: baseFontSize, font: fonteNorm }); textY -= lineSpc;
-                        primeiraPagina.drawText(`Local: ${local_atual.substring(0, 25)}`, { x: textX, y: textY, size: baseFontSize, font: fonteNorm }); textY -= lineSpc;
-                        primeiraPagina.drawText("Valide em:", { x: textX, y: textY, size: baseFontSize, font: fonteNorm }); textY -= (lineSpc * 0.8);
-                        primeiraPagina.drawText("https://certificadocachoeiras.github.io/certificadocachoeiras/", { x: textX, y: textY, size: baseFontSize * 0.7, font: fonteNorm, color: PDFLib.rgb(0.1, 0.1, 0.8) });
+                        primeiraPagina.drawText(`Hash Orig.: ${docHash.substring(0, 16)}...`, { x: textX, y: textY, size: baseFontSize * 0.8, font: fonteNorm }); textY -= lineSpc;
+                        primeiraPagina.drawText("Audite o QR Code pelo app web.", { x: textX, y: textY, size: baseFontSize * 0.8, font: fonteNorm, color: PDFLib.rgb(0.5, 0.5, 0.5) }); 
                     } else {
                         const qrSize = boxW - (padding * 2);
                         const qrY = currentY + boxH - qrSize - padding;
                         primeiraPagina.drawImage(qrImage, { x: boxX + padding, y: qrY, width: qrSize, height: qrSize });
-                        
                         const textX = boxX + padding;
                         const baseFontSize = Math.min(Math.max(boxW * 0.08, 4), 10);
                         const lineSpc = baseFontSize * 1.2;
                         let textY = qrY - padding - baseFontSize;
 
-                        primeiraPagina.drawText("ASSINATURA DIGITAL", { x: textX, y: textY, size: baseFontSize, font: fonte }); textY -= lineSpc;
-                        primeiraPagina.drawText(`N: ${dados.nome.substring(0, 20)}`, { x: textX, y: textY, size: baseFontSize, font: fonteNorm }); textY -= lineSpc;
-                        primeiraPagina.drawText(`ID: ${dados.numero_identificacao}`, { x: textX, y: textY, size: baseFontSize, font: fonteNorm }); textY -= lineSpc;
+                        primeiraPagina.drawText("VERIFICÁVEL", { x: textX, y: textY, size: baseFontSize+1, font: fonte, color: PDFLib.rgb(0.1, 0.5, 0.2) }); textY -= lineSpc;
+                        primeiraPagina.drawText(`${assinante.name.substring(0, 20)}`, { x: textX, y: textY, size: baseFontSize, font: fonteNorm }); textY -= lineSpc;
                         primeiraPagina.drawText(`${dataHoraStr}`, { x: textX, y: textY, size: baseFontSize, font: fonteNorm }); textY -= lineSpc;
-                        primeiraPagina.drawText(`${local_atual.substring(0, 20)}`, { x: textX, y: textY, size: baseFontSize, font: fonteNorm }); textY -= lineSpc;
-                        primeiraPagina.drawText("Validar em:", { x: textX, y: textY, size: baseFontSize * 0.8, font: fonteNorm }); textY -= (lineSpc * 0.8);
-                        primeiraPagina.drawText("certificadocachoeiras.github.io", { x: textX, y: textY, size: baseFontSize * 0.7, font: fonteNorm, color: PDFLib.rgb(0.1, 0.1, 0.8) });
+                        primeiraPagina.drawText(`Hash: ${docHash.substring(0, 10)}...`, { x: textX, y: textY, size: baseFontSize*0.8, font: fonteNorm }); textY -= lineSpc;
                     }
                 }
-
                 const url = URL.createObjectURL(new Blob([await pdfDoc.save()], { type: "application/pdf" }));
                 const link = document.createElement('a'); link.href = url; link.download = inputDocs[d].name.replace('.pdf', '_ASSINADO.pdf');
                 document.body.appendChild(link); link.click(); document.body.removeChild(link);
             }
-            status.innerText += `\nConcluído! Documentos assinados com sucesso no formato escolhido.`;
-        } catch (erro) { status.innerText += `\nErro: ${erro.message}`; } finally { btn.disabled = false; }
+            status.innerText += `Concluído com Segurança!`;
+        } catch (erro) { status.innerText += `Erro: ${erro.message}`; } 
+        finally { 
+            btn.disabled = false; 
+            document.getElementById('certificados').value = ""; 
+            document.getElementById('password-list-container').innerHTML = ""; // Limpa senhas da tela
+            assinantesValidados = null; // Tenta forçar Garbage Collector a apagar chaves privadas
+        }
     }
 
-    // --- LÓGICA DO GERADOR ---
+    // --- LÓGICA DO GERADOR DE CREDENCIAL ---
     async function gerarCertificado() {
         const nome = document.getElementById("nome").value.trim();
         const dataNasc = document.getElementById("data_nasc").value;
@@ -351,58 +445,133 @@
         const numeroId = document.getElementById("numero_id").value.trim();
         const inputRg = document.getElementById("foto_rg").files[0];
         const inputSelfie = document.getElementById("foto_selfie").files[0];
+        const senha1 = document.getElementById("senha1").value;
+        const senha2 = document.getElementById("senha2").value;
+        const declaro = document.getElementById("declaro_veracidade").checked;
         const btn = document.getElementById("btnGerar");
         
-        if(!nome || !dataNasc || !localNasc || !numeroId || !inputRg || !inputSelfie) { alert("Preencha todos os campos e anexe as fotos."); return; }
+        if(!nome || !dataNasc || !localNasc || !numeroId || !inputRg || !inputSelfie || !senha1) { alert("Preencha todos os campos e anexe as fotos."); return; }
+        if(senha1 !== senha2) { alert("As senhas não coincidem."); return; }
+        if(senha1.length < 6) { alert("A senha deve ter no mínimo 6 caracteres."); return; }
+        if(!declaro) { alert("Você precisa marcar a caixa de declaração de veracidade para emitir a credencial."); return; }
 
         try {
-            btn.innerText = "Processando..."; btn.disabled = true;
+            btn.innerText = "Blindando Credencial..."; btn.disabled = true;
             const base64Rg = await new Promise(r => { const rd = new FileReader(); rd.onload = () => r(rd.result); rd.readAsDataURL(inputRg); });
             const base64Selfie = await new Promise(r => { const rd = new FileReader(); rd.onload = () => r(rd.result); rd.readAsDataURL(inputSelfie); });
 
+            // 1. Gera par de chaves RSA
             const keyPair = await window.crypto.subtle.generateKey({ name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" }, true, ["sign", "verify"]);
-            const jwk = await window.crypto.subtle.exportKey("jwk", keyPair.privateKey);
-            jwk.servidor = { nome, data_nascimento: dataNasc, local_nascimento: localNasc, tipo_identificacao: tipoId, numero_identificacao: numeroId, data_emissao: new Date().toISOString(), evidencias: { rg_base64: base64Rg, selfie_base64: base64Selfie } };
+            const jwkPriv = await window.crypto.subtle.exportKey("jwk", keyPair.privateKey);
+            const jwkPub = await window.crypto.subtle.exportKey("jwk", keyPair.publicKey);
 
-            const blob = new Blob([JSON.stringify(jwk, null, 2)], { type: "application/json" });
-            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = "certificado_" + nome.replace(/\s+/g, '_').toLowerCase() + ".json";
+            // 2. Separa os dados Sensíveis (Serão Criptografados)
+            const sensitiveData = {
+                privateKey: jwkPriv,
+                data_nascimento: dataNasc,
+                local_nascimento: localNasc,
+                tipo_identificacao: tipoId,
+                numero_identificacao: numeroId,
+                rg_base64: base64Rg,
+                selfie_base64: base64Selfie
+            };
+
+            // 3. Criptografa o Payload
+            const encryptedPayload = await encryptPayload(sensitiveData, senha1);
+
+            // 4. Monta o Arquivo Final
+            const finalCredential = {
+                version: "2.0",
+                credential_id: uuidv4(),
+                public_name: nome,
+                public_key: jwkPub,
+                crypto: encryptedPayload
+            };
+
+            const blob = new Blob([JSON.stringify(finalCredential, null, 2)], { type: "application/json" });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = "credencial_" + nome.replace(/\s+/g, '_').toLowerCase() + ".json";
             document.body.appendChild(a); a.click(); document.body.removeChild(a);
             
-            alert("Sucesso! Certificado gerado."); btn.innerText = "Criar e Baixar Certificado"; btn.disabled = false;
-        } catch (e) { alert("Erro ao gerar chaves."); btn.innerText = "Criar e Baixar Certificado"; btn.disabled = false; }
+            alert("Credencial Blindada com Sucesso! Guarde sua senha."); 
+            btn.innerText = "Criar e Proteger Credencial"; btn.disabled = false;
+            
+            // Limpa formulário
+            document.getElementById("senha1").value = ""; document.getElementById("senha2").value = "";
+        } catch (e) { alert("Erro ao gerar credencial criptográfica."); btn.innerText = "Criar e Proteger Credencial"; btn.disabled = false; }
     }
 
-    // --- LÓGICA DO VALIDADOR ---
+    // --- LÓGICA DO VALIDADOR E AUDITORIA ---
+    let qrHashMemoria = null;
+
     function iniciarScanner() {
         document.getElementById('btnStartCamera').style.display = 'none';
         document.getElementById('resultadoCaixa').style.display = 'none';
+        qrHashMemoria = null; document.getElementById('pdf_original_auditoria').value = ""; document.getElementById('resHashDocumento').innerText = "";
         
         html5QrcodeScanner = new Html5Qrcode("reader");
         html5QrcodeScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, sucessoLeitura, () => {})
         .catch(err => { alert("Erro ao ligar a câmera."); document.getElementById('btnStartCamera').style.display = 'block'; });
     }
 
-    function sucessoLeitura(textoDecodificado) {
+    async function sucessoLeitura(textoDecodificado) {
         html5QrcodeScanner.stop();
-        document.getElementById('btnStartCamera').style.display = 'block';
-        document.getElementById('btnStartCamera').innerText = "Escanear Outro";
-
+        document.getElementById('btnStartCamera').style.display = 'block'; document.getElementById('btnStartCamera').innerText = "Escanear Outro QR Code";
         const caixa = document.getElementById('resultadoCaixa');
         const titulo = document.getElementById('statusTitulo');
+        const resCrypto = document.getElementById('resCrypto');
 
         try {
-            const dados = JSON.parse(textoDecodificado);
-            if(dados.v === "Valido - Certificado Cachoeiras") {
-                caixa.className = "resultado valido"; titulo.innerText = "✓ Assinatura Reconhecida"; titulo.style.color = "#27ae60";
-                document.getElementById('resNome').innerText = dados.n; document.getElementById('resId').innerText = dados.id;
-                document.getElementById('resData').innerText = dados.d; document.getElementById('resLocal').innerText = dados.l;
-            } else { throw new Error(); }
+            const qrObj = JSON.parse(textoDecodificado);
+            if(!qrObj.p || !qrObj.pk || !qrObj.s) throw new Error("Malformado");
+
+            // Reconstrói a chave pública a partir do JWK resumido do QR
+            const jwkPub = { kty: "RSA", ext: true, n: qrObj.pk.n, e: qrObj.pk.e, alg: "RS256" };
+            const publicKey = await crypto.subtle.importKey("jwk", jwkPub, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]);
+            
+            // Verifica a assinatura matemática do payload
+            const signatureBuffer = base64ToArrayBuffer(qrObj.s);
+            const isValid = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", publicKey, signatureBuffer, enc.encode(qrObj.p));
+
+            if(isValid) {
+                const payloadObj = JSON.parse(qrObj.p);
+                caixa.className = "resultado valido"; 
+                titulo.innerText = "✓ Assinatura Verificada"; titulo.style.color = "#27ae60";
+                resCrypto.innerText = "Válida (Verificada Criptograficamente)"; resCrypto.style.color = "#27ae60";
+                
+                document.getElementById('resNome').innerText = payloadObj.n;
+                document.getElementById('resId').innerText = payloadObj.cid; // ID da credencial
+                document.getElementById('resSigId').innerText = payloadObj.sid; // ID da assinatura
+                document.getElementById('resData').innerText = payloadObj.d + " (" + payloadObj.l + ")";
+                
+                qrHashMemoria = payloadObj.h; // Guarda para verificação do PDF original
+            } else {
+                caixa.className = "resultado alerta"; 
+                titulo.innerText = "⚠ Falha Criptográfica"; titulo.style.color = "#f39c12";
+                resCrypto.innerText = "Inválida (O conteúdo do QR Code foi forjado ou alterado)"; resCrypto.style.color = "#c0392b";
+            }
         } catch (e) {
-            caixa.className = "resultado invalido"; titulo.innerText = "⚠ Assinatura Inválida"; titulo.style.color = "#e74c3c";
-            document.getElementById('resNome').innerText = "Desconhecido"; document.getElementById('resId').innerText = "Desconhecido";
-            document.getElementById('resData').innerText = "-"; document.getElementById('resLocal').innerText = "QR Code não pertence ao sistema.";
+            caixa.className = "resultado invalido"; titulo.innerText = "✖ Formato Desconhecido"; titulo.style.color = "#e74c3c";
+            resCrypto.innerText = "O QR Code lido não pertence a este sistema de assinatura."; resCrypto.style.color = "#e74c3c";
+            document.getElementById('resNome').innerText = "-"; document.getElementById('resId').innerText = "-"; document.getElementById('resData').innerText = "-"; document.getElementById('resSigId').innerText = "-";
         }
         caixa.style.display = 'block';
+    }
+
+    async function verificarHashPDF(input) {
+        const textoResult = document.getElementById('resHashDocumento');
+        if(input.files.length === 0 || !qrHashMemoria) { textoResult.innerText = ""; return; }
+        
+        textoResult.innerText = "Calculando integridade matemática..."; textoResult.style.color = "#333";
+        const buffer = await lerArquivoBuffer(input.files[0]);
+        const hashAtual = await hashDocument(buffer);
+        
+        if(hashAtual === qrHashMemoria) {
+            textoResult.innerText = "✓ Documento Íntegro. Este é exatamente o documento original que foi assinado.";
+            textoResult.style.color = "#27ae60";
+        } else {
+            textoResult.innerText = "✖ Documento Alterado ou Incorreto. O arquivo enviado não confere matematicamente com a assinatura registrada no QR Code (Você anexou o arquivo que já possui a marca visual em vez do original?).";
+            textoResult.style.color = "#e74c3c";
+        }
     }
 </script>
 </body>
