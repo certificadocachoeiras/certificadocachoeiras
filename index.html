@@ -36,6 +36,7 @@
         /* Estilos do Preview Canvas */
         #preview-container { position: relative; margin-top: 15px; display: none; border: 1px solid #ccc; background: #ddd; max-height: 500px; overflow-y: auto; text-align: center; }
         #pdf-canvas { display: block; margin: 0 auto; box-shadow: 0 0 5px rgba(0,0,0,0.3); }
+        /* O touch-action: none impede que o celular role a tela enquanto você desenha */
         #overlay { position: absolute; top: 0; left: 50%; transform: translateX(-50%); cursor: crosshair; z-index: 10; touch-action: none; }
         #selection-box { position: absolute; border: 2px dashed #e74c3c; background: rgba(231, 76, 60, 0.2); display: none; pointer-events: none; z-index: 20; }
         
@@ -128,8 +129,6 @@
 
     // --- LÓGICA DO PREVIEW E DESENHO ---
     let selectionRect = null;
-    let pdfOriginalWidth = 0;
-    let pdfOriginalHeight = 0;
 
     async function renderizarPreviewPDF(input) {
         if (input.files.length === 0) return;
@@ -140,8 +139,6 @@
         const page = await pdf.getPage(1);
         
         const viewport = page.getViewport({ scale: 1.0 });
-        pdfOriginalWidth = viewport.width;
-        pdfOriginalHeight = viewport.height;
         
         const scale = 500 / viewport.width;
         const scaledViewport = page.getViewport({ scale: scale });
@@ -158,28 +155,28 @@
         document.getElementById('preview-container').style.display = 'block';
         await page.render({ canvasContext: context, viewport: scaledViewport }).promise;
         
-        configurarDesenho(overlay);
+        configurarDesenho();
     }
 
-    function configurarDesenho(overlay) {
-        let isDrawing = false;
-        let startX, startY;
+    function configurarDesenho() {
+        const overlay = document.getElementById('overlay');
         const selBox = document.getElementById('selection-box');
         
+        let isDrawing = false;
+        let startX, startY;
+
         function getCoordinates(e) {
             const rect = overlay.getBoundingClientRect();
-            // Identifica se é toque de tela (celular/tablet) ou clique de mouse
             if (e.touches && e.touches.length > 0) {
                 return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
             }
             return { x: e.clientX - rect.left, y: e.clientY - rect.top };
         }
 
-        function iniciarDesenho(e) {
-            // Trava o scroll da tela no celular ao começar a desenhar
-            if (e.type === 'touchstart') e.preventDefault(); 
-            const coords = getCoordinates(e);
+        // Os eventos sobrescrevem os antigos automaticamente, sem causar duplicação de funções
+        overlay.onmousedown = overlay.ontouchstart = (e) => {
             isDrawing = true;
+            const coords = getCoordinates(e);
             startX = coords.x;
             startY = coords.y;
             selBox.style.display = 'block';
@@ -187,48 +184,36 @@
             selBox.style.top = startY + 'px';
             selBox.style.width = '0px';
             selBox.style.height = '0px';
-        }
+        };
 
-        function moverDesenho(e) {
+        overlay.onmousemove = overlay.ontouchmove = (e) => {
             if (!isDrawing) return;
-            // Continua impedindo o scroll do celular durante o arraste
-            if (e.type === 'touchmove') e.preventDefault(); 
             const coords = getCoordinates(e);
             const w = coords.x - startX;
             const h = coords.y - startY;
-            
             selBox.style.left = (w < 0 ? coords.x : startX) + 'px';
             selBox.style.top = (h < 0 ? coords.y : startY) + 'px';
             selBox.style.width = Math.abs(w) + 'px';
             selBox.style.height = Math.abs(h) + 'px';
-        }
+        };
 
-        function pararDesenho(e) {
+        overlay.onmouseup = overlay.onmouseleave = overlay.ontouchend = overlay.ontouchcancel = (e) => {
             if (!isDrawing) return;
             isDrawing = false;
-            // Salva as proporções calculadas
+            
+            const ow = overlay.offsetWidth;
+            const oh = overlay.offsetHeight;
+            
+            // Segurança contra divisão por zero e falhas de leitura
+            if (ow === 0 || oh === 0) return;
+            
             selectionRect = {
-                x: parseInt(selBox.style.left) / overlay.offsetWidth,
-                y: parseInt(selBox.style.top) / overlay.offsetHeight,
-                w: parseInt(selBox.style.width) / overlay.offsetWidth,
-                h: parseInt(selBox.style.height) / overlay.offsetHeight
+                x: parseFloat(selBox.style.left) / ow,
+                y: parseFloat(selBox.style.top) / oh,
+                w: parseFloat(selBox.style.width) / ow,
+                h: parseFloat(selBox.style.height) / oh
             };
-        }
-
-        // Limpa eventos antigos para não duplicar se carregar outro PDF
-        const clone = overlay.cloneNode(true);
-        overlay.parentNode.replaceChild(clone, overlay);
-        const novoOverlay = document.getElementById('overlay');
-
-        // Eventos para Mouse
-        novoOverlay.addEventListener('mousedown', iniciarDesenho);
-        novoOverlay.addEventListener('mousemove', moverDesenho);
-        window.addEventListener('mouseup', pararDesenho);
-
-        // Eventos para Touch (Celular e Tablet)
-        novoOverlay.addEventListener('touchstart', iniciarDesenho, { passive: false });
-        novoOverlay.addEventListener('touchmove', moverDesenho, { passive: false });
-        window.addEventListener('touchend', pararDesenho);
+        };
     }
 
     // --- LÓGICA DO ASSINADOR ---
@@ -267,8 +252,16 @@
         const btn = document.getElementById('btnAssinar');
         const status = document.getElementById('status-assinatura');
 
-        if (inputCerts.length === 0 || inputDocs.length === 0) { alert("Carregue certificado e PDF."); return; }
-        if (!selectionRect || selectionRect.w === 0) { alert("Por favor, desenhe na imagem o local onde a assinatura deve ficar."); return; }
+        if (inputCerts.length === 0 || inputDocs.length === 0) { 
+            alert("Carregue o certificado (.json) e o documento (.pdf)."); 
+            return; 
+        }
+        
+        // Bloqueio de segurança que evita o erro NaN reportado
+        if (!selectionRect || isNaN(selectionRect.w) || selectionRect.w === 0) { 
+            alert("Por favor, clique e arraste no documento para desenhar o retângulo onde a assinatura deve ficar."); 
+            return; 
+        }
 
         btn.disabled = true; status.innerText = "Capturando localização...\n";
         const local_atual = await obterLocalizacao(); status.innerText += `Local: ${local_atual}\nLendo arquivos...\n`;
@@ -345,7 +338,7 @@
                 const link = document.createElement('a'); link.href = url; link.download = inputDocs[d].name.replace('.pdf', '_ASSINADO.pdf');
                 document.body.appendChild(link); link.click(); document.body.removeChild(link);
             }
-            status.innerText += `\nConcluído!`;
+            status.innerText += `\nConcluído! Documentos assinados com sucesso no formato escolhido.`;
         } catch (erro) { status.innerText += `\nErro: ${erro.message}`; } finally { btn.disabled = false; }
     }
 
