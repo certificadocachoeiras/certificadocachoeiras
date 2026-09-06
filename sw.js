@@ -1,10 +1,13 @@
-const CACHE_NAME = 'certificado-cachoeiras-v1';
+const CACHE_NAME = 'certificado-cachoeiras-v2';
 const urlsToCache = [
   './index.html',
+  './gerador.html',
+  './validador.html',
   './manifest.json',
   './icone.png',
   'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'
+  'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js',
+  'https://unpkg.com/html5-qrcode'
 ];
 
 self.addEventListener('install', event => {
